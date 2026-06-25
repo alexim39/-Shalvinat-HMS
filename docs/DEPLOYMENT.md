@@ -17,28 +17,63 @@ Frontend on shared hosting (cPanel/Apache) + Backend on Back4app + Database on M
 
 ---
 
-## 2. Back4app (Backend API)
+## 2. Back4app (Backend API — via GitHub)
 
+Back4app uses container-based deployment connected directly to your GitHub repo. No manual uploads needed.
+
+### 2.1 Push to GitHub
+```bash
+git init
+git add .
+git commit -m "Initial commit"
+git remote add origin https://github.com/YOUR_USER/shalvinat-hms.git
+git push -u origin main
+```
+
+### 2.2 Create Back4app Web App
 1. Create a free account at [back4app.com](https://back4app.com)
-2. Create a new **Web App** (Node.js)
-3. Upload the `apps/api` folder
-4. Set **Build command**: `npm install && npm run build`
-5. Set **Start command**: `npm start`
-6. Add **Environment Variables**:
+2. Click **New App** → **Container as a Service (CaaS)** → **Create App**
+3. Under **Deployment method**, choose **GitHub** and connect your repo
+4. Set the following deployment settings:
+
+| Setting | Value |
+|---------|-------|
+| **Branch** | `main` |
+| **Root Directory** | `apps/api` |
+| **Instance Size** | Shared (free tier) |
+
+Back4app will detect the `Dockerfile` in `apps/api/` and build the container automatically. The Dockerfile handles everything — install deps, compile TypeScript, and start the server. No separate build/start commands needed.
+
+### 2.3 Set Environment Variables
+In the Back4app dashboard → **Settings** → **Environment Variables**:
 
 | Key | Value |
 |-----|-------|
 | `NODE_ENV` | `production` |
 | `MONGO_URI` | Your MongoDB Atlas connection string |
-| `JWT_ACCESS_SECRET` | Generated 64-char random hex |
-| `JWT_REFRESH_SECRET` | Generated 64-char random hex |
-| `FIELD_ENCRYPTION_KEY` | Generated 64-char random hex |
-| `CLIENT_ORIGIN` | Your shared hosting domain (e.g., `https://shalvinat.yourdomain.com`) |
+| `JWT_ACCESS_SECRET` | *(generate below)* |
+| `JWT_REFRESH_SECRET` | *(generate below)* |
+| `FIELD_ENCRYPTION_KEY` | *(generate below)* |
+| `CLIENT_ORIGIN` | `https://yourdomain.com` (your shared hosting URL) |
 | `BCRYPT_ROUNDS` | `12` |
 
-   Generate secrets: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+Generate strong secrets locally:
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
 
-7. Deploy. Note the **Back4app URL** (e.g., `https://shalvinat-api.xxxxx.back4app.io`)
+### 2.4 Deploy
+Back4app auto-deploys on every push to `main`. Click **Deploy** to trigger the first deployment. After deployment, note the **App URL** (e.g., `https://shalvinat-api.xxxxx.back4app.io`).
+
+### 2.5 Seed the database (one-time)
+You can run the seed script from your local machine pointing at your MongoDB Atlas:
+```bash
+cd apps/api
+set MONGO_URI=mongodb+srv://shalvinat:YOUR_PASSWORD@cluster0.xxxxx.mongodb.net/shalvinat_hms?retryWrites=true&w=majority
+npm run seed
+```
+
+This creates 10 demo users (one per role) with password `Shalvinat@2026!`.
 
 ---
 

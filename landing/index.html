@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Shalvinat Healthcare Limited — Bonny Island, Rivers State</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Shalvinat Healthcare Limited — Providing quality medical care on Bonny Island, Rivers State. OPD, IPD, maternity, laboratory, radiology, pharmacy and surgical services.">
+  <meta name="theme-color" content="#000540">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo+Narrow:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: "Archivo Narrow", "Segoe UI", Arial, sans-serif;
+      color: #0B0B0B;
+      background: #F9F9F9;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+    .card {
+      max-width: 620px;
+      width: 100%;
+      text-align: center;
+      display: grid;
+      gap: 20px;
+      justify-items: center;
+    }
+    .card img {
+      height: 64px;
+      width: auto;
+    }
+    h1 {
+      font-family: "Anton", sans-serif;
+      font-weight: 400;
+      font-size: 2.6rem;
+      color: #000540;
+      letter-spacing: 0.04em;
+      line-height: 1.15;
+    }
+    h1 span { color: #006EFF; }
+    .accent-bar {
+      width: 64px;
+      height: 5px;
+      background: #FCC105;
+      border-radius: 3px;
+    }
+    p.tagline {
+      font-size: 1.15rem;
+      color: #525252;
+      line-height: 1.65;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      width: 100%;
+    }
+    .info-card {
+      background: #fff;
+      border: 1px solid #d8e1eb;
+      border-radius: 8px;
+      padding: 16px;
+      text-align: left;
+      display: grid;
+      gap: 6px;
+    }
+    .info-card h3 {
+      font-family: "Anton", sans-serif;
+      font-weight: 400;
+      font-size: 1.1rem;
+      color: #000540;
+      letter-spacing: 0.02em;
+    }
+    .info-card p {
+      font-size: 0.95rem;
+      color: #525252;
+      line-height: 1.55;
+    }
+    .info-card p strong { color: #0B0B0B; }
+    .services-list {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+    .services-list span {
+      background: #edf6f7;
+      color: #000540;
+      font-size: 0.88rem;
+      font-weight: 700;
+      padding: 6px 14px;
+      border-radius: 999px;
+    }
+    .link-group {
+      display: grid;
+      gap: 14px;
+      width: 100%;
+    }
+    a.primary-link {
+      display: block;
+      font-family: "Archivo Narrow", sans-serif;
+      font-size: 1.05rem;
+      font-weight: 700;
+      text-decoration: none;
+      padding: 14px 28px;
+      border-radius: 8px;
+      transition: all 0.2s ease;
+    }
+    a.hms-link {
+      background: #006EFF;
+      color: #fff;
+    }
+    a.hms-link:hover {
+      background: #0055cc;
+      transform: translateY(-1px);
+      box-shadow: 0 8px 24px rgba(0, 110, 255, 0.3);
+    }
+    .status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #15803d;
+    }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #15803d;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    footer {
+      font-size: 0.85rem;
+      color: #525252;
+    }
+    @media (max-width: 500px) {
+      h1 { font-size: 2rem; }
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <section class="card">
+    <img src="logo.jpeg" alt="Shalvinat Healthcare" />
+
+    <h1>Shalvinat <span>Healthcare</span></h1>
+
+    <div class="accent-bar"></div>
+
+    <p class="tagline">
+      A trusted healthcare provider on Bonny Island, Rivers State — delivering
+      quality medical services with compassion, integrity, and modern technology.
+    </p>
+
+    <div class="services-list">
+      <span>OPD</span>
+      <span>IPD</span>
+      <span>Maternity</span>
+      <span>Laboratory</span>
+      <span>Radiology</span>
+      <span>Pharmacy</span>
+      <span>Surgery</span>
+      <span>Immunisation</span>
+    </div>
+
+    <div class="grid-2">
+      <div class="info-card">
+        <h3>Location</h3>
+        <p>Walter Finipiri Street<br>Bonny Island<br>Rivers State, Nigeria</p>
+      </div>
+
+      <div class="info-card">
+        <h3>Contact</h3>
+        <p><strong>Phone:</strong> 0803 945 1320<br><strong>Email:</strong> info@shalvinathealthcare.com</p>
+      </div>
+
+      <div class="info-card">
+        <h3>Hours</h3>
+        <p>24 hours, 7 days a week<br>Emergency services always available</p>
+      </div>
+
+      <div class="info-card">
+        <h3>HMS Portal</h3>
+        <p>Staff access for patient records, clinical documentation, billing, pharmacy, laboratory, radiology and administration.</p>
+      </div>
+    </div>
+
+    <div class="link-group">
+      <a class="primary-link hms-link" href="https://hms.shalvinathealthcare.com">
+        Access HMS Portal &rarr;
+      </a>
+    </div>
+
+    <div class="status-bar">
+      <span class="status-dot"></span>
+      Now open and accepting patients
+    </div>
+
+    <span style="display:inline-flex;align-items:center;gap:6px;font-size:0.82rem;color:#000540;background:#edf6f7;padding:6px 14px;border-radius:999px;letter-spacing:0.03em">
+      <span style="color:#006EFF;font-size:1.1rem">&bull;</span> Full website coming soon
+    </span>
+
+    <footer>
+      &copy; 2026 Shalvinat Healthcare Limited. All rights reserved.
+    </footer>
+  </section>
+</body>
+</html>
