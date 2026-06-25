@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.angular/
+.env
+.env.*
+!.env.example
+coverage/
+artifacts/
+logs/
+*.log
+tmp-*.log
+uploads/
+tmp/
