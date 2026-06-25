@@ -11,6 +11,7 @@ import { LabComponent } from './features/lab/lab.component';
 import { RadiologyComponent } from './features/radiology/radiology.component';
 import { DirectorComponent } from './features/director/director.component';
 import { ManagementComponent } from './features/management/management.component';
+import { AccountingComponent } from './features/accounting/accounting.component';
 import { PatientProfileComponent } from './features/patient-profile/patient-profile.component';
 
 export const routes: Routes = [
@@ -29,6 +30,7 @@ export const routes: Routes = [
       { path: 'lab', component: LabComponent, canActivate: [roleGuard(['laboratory'])] },
       { path: 'radiology', component: RadiologyComponent, canActivate: [roleGuard(['radiology'])] },
       { path: 'management', component: ManagementComponent, canActivate: [roleGuard(['manager'])] },
+      { path: 'accounting', component: AccountingComponent, canActivate: [roleGuard(['accountant', 'accounts_manager'])] },
       { path: 'director', component: DirectorComponent, canActivate: [roleGuard(['director'])] },
       { path: 'patients/:id', component: PatientProfileComponent }
     ]

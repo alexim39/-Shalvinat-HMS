@@ -169,6 +169,7 @@ export class DashboardComponent implements OnInit {
     { label: 'Laboratory', caption: 'Samples, results, authorization', path: '/lab', roles: ['laboratory'] },
     { label: 'Radiology', caption: 'Imaging requests and reports', path: '/radiology', roles: ['radiology'] },
     { label: 'Management', caption: 'Finance, staff, beds and assets', path: '/management', roles: ['manager'] },
+    { label: 'Accounting', caption: 'Payments, receivables, claims, vouchers', path: '/accounting', roles: ['accountant', 'accounts_manager'] },
     { label: 'Director', caption: 'Executive KPIs and audit visibility', path: '/director', roles: ['director'] },
   ] as const;
 

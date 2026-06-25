@@ -5,8 +5,9 @@ import { validate } from "../middleware/validate.js";
 import { LabRequest } from "../models/investigation.model.js";
 import { Notification } from "../models/notification.model.js";
 import { asyncHandler } from "../utils/async-handler.js";
-import { notFound } from "../utils/http-error.js";
+import { notFound, HttpError } from "../utils/http-error.js";
 import { makeLabSampleCode } from "../utils/ids.js";
+import { upload, canDownloadResult, ALLOWED_UPLOAD_TYPES_DESC } from "../utils/upload.js";
 
 export const labRouter = Router();
 
@@ -169,5 +170,96 @@ labRouter.patch(
     }
 
     res.json({ data: request });
+  }),
+);
+
+labRouter.post(
+  "/requests/:id/upload",
+  requireRoles("laboratory"),
+  upload.array("files", 10),
+  asyncHandler(async (req, res) => {
+    const labRequest: any = await LabRequest.findById(req.params.id);
+    if (!labRequest) throw notFound("Lab request not found.");
+
+    const files = (req.files as Express.Multer.File[]) ?? [];
+    if (files.length === 0) {
+      throw new HttpError(400, "No files uploaded.");
+    }
+
+    const summary = String(req.body.summary ?? "").trim();
+    const released = String(req.body.released ?? "false") === "true";
+
+    const uploadedFiles = files.map((file) => ({
+      fileName: file.filename,
+      originalName: file.originalname,
+      fileType: file.mimetype,
+      fileSize: file.size,
+      storagePath: `uploads/${file.filename}`,
+      uploadedBy: req.user?.id,
+      uploadedAt: new Date(),
+      summary,
+      released,
+      releasedAt: released ? new Date() : undefined,
+    }));
+
+    labRequest.resultFiles = [...(labRequest.resultFiles ?? []), ...uploadedFiles];
+    await labRequest.save();
+
+    if (released) {
+      await Notification.create({
+        recipient: labRequest.doctor,
+        title: "Lab results released",
+        message: `Lab results have been uploaded and released.`,
+        severity: "info",
+        link: `/doctor?visit=${labRequest.visit}`,
+      });
+    }
+
+    const response = labRequest.toObject();
+    const isPrivileged = req.user?.roles?.some((r: string) => ["doctor", "director"].includes(r)) ?? false;
+    if (!isPrivileged && response.resultFiles) {
+      response.resultFiles = response.resultFiles.map((f: any) => ({
+        ...f,
+        file_downloadable: canDownloadResult(req.user?.roles ?? [], f.uploadedBy?.toString() ?? "", req.user?.id ?? ""),
+      }));
+    }
+
+    res.json({ data: response, meta: { files_uploaded: files.length, allowed_file_types: ALLOWED_UPLOAD_TYPES_DESC } });
+  }),
+);
+
+labRouter.get(
+  "/requests/:id/files/:fileIndex/download",
+  requireRoles("laboratory", "doctor", "director"),
+  asyncHandler(async (req, res) => {
+    const labRequest: any = await LabRequest.findById(req.params.id);
+    if (!labRequest) throw notFound("Lab request not found.");
+
+    const fileIndex = parseInt(String(req.params.fileIndex ?? ""), 10);
+    const file = labRequest.resultFiles?.[fileIndex];
+    if (!file) throw notFound("File not found.");
+
+    const userRoles: string[] = req.user?.roles ?? [];
+    const userId: string = req.user?.id ?? "";
+    const uploaderId: string = file.uploadedBy?.toString() ?? "";
+
+    if (!canDownloadResult(userRoles, uploaderId, userId)) {
+      return res.status(403).json({ error: { message: "Only doctors, directors, or the original uploader can download result files." } });
+    }
+
+    const { createReadStream, existsSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const filePath = join(process.cwd(), file.storagePath);
+    if (!existsSync(filePath)) throw notFound("File not found on disk.");
+
+    const ext = file.originalName?.split(".").pop()?.toLowerCase() ?? "";
+    const contentTypeMap: Record<string, string> = {
+      jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png",
+      pdf: "application/pdf", doc: "application/msword",
+      docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    };
+    res.setHeader("Content-Type", contentTypeMap[ext] ?? "application/octet-stream");
+    res.setHeader("Content-Disposition", `inline; filename="${file.originalName}"`);
+    createReadStream(filePath).pipe(res);
   }),
 );

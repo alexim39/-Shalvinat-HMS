@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireAuth, requireRoles } from "../middleware/auth.js";
 import { validate } from "../middleware/validate.js";
 import { Notification } from "../models/notification.model.js";
-import { DispenseRecord, Drug, InventoryBatch, Prescription } from "../models/pharmacy.model.js";
+import { DispenseRecord, Drug, InventoryBatch, Prescription, InventoryItem, ExtendedBatch, InventoryLocation, StockMovement, PurchaseOrder, GoodsReceivedNote, ControlledSubstanceRegister } from "../models/pharmacy.model.js";
 import { asyncHandler } from "../utils/async-handler.js";
 import { HttpError, notFound } from "../utils/http-error.js";
 
@@ -164,5 +164,333 @@ pharmacyRouter.get(
 
     const lowStock = batches.filter((batch: any) => batch.quantityOnHand <= batch.drug?.reorderLevel);
     res.json({ data: { nearExpiry, lowStock } });
+  }),
+);
+
+// ── Inventory Items ───────────────────────────────────────
+
+pharmacyRouter.get(
+  "/inventory-items",
+  requireRoles("pharmacy", "manager"),
+  asyncHandler(async (req, res) => {
+    const category = String(req.query.category ?? "");
+    const query: Record<string, unknown> = { active: true };
+    if (category) query.category = category;
+    const items = await InventoryItem.find(query)
+      .populate("drug", "genericName strength")
+      .sort({ name: 1 })
+      .lean();
+    res.json({ data: items });
+  }),
+);
+
+pharmacyRouter.post(
+  "/inventory-items",
+  requireRoles("pharmacy"),
+  validate({
+    body: z.object({
+      name: z.string().min(2),
+      sku: z.string().optional(),
+      category: z.enum(["drug", "consumable", "surgical", "equipment", "reagent", "other"]).default("consumable"),
+      unitOfMeasure: z.string().default("unit"),
+      isControlled: z.boolean().default(false),
+      reorderLevel: z.number().min(0).default(10),
+      reorderPoint: z.number().min(0).default(5),
+      storageCondition: z.string().optional(),
+      minOrderQty: z.number().min(1).default(1),
+    }),
+  }),
+  asyncHandler(async (req, res) => {
+    const item = await InventoryItem.create(req.body);
+    res.status(201).json({ data: item });
+  }),
+);
+
+// ── Stock Movements ───────────────────────────────────────
+
+pharmacyRouter.get(
+  "/stock-movements",
+  requireRoles("pharmacy", "manager"),
+  asyncHandler(async (req, res) => {
+    const movements = await StockMovement.find({})
+      .populate("item", "name sku")
+      .populate("performedBy", "fullName")
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean();
+    res.json({ data: movements });
+  }),
+);
+
+pharmacyRouter.post(
+  "/stock-movements",
+  requireRoles("pharmacy"),
+  validate({
+    body: z.object({
+      item: z.string().min(1),
+      batch: z.string().optional(),
+      quantity: z.number(),
+      fromLocation: z.string().optional(),
+      toLocation: z.string().optional(),
+      movementType: z.enum(["receipt", "dispense", "transfer", "adjustment", "return", "expiry_write_off"]),
+      referenceId: z.string().optional(),
+      note: z.string().optional(),
+    }),
+  }),
+  asyncHandler(async (req, res) => {
+    const movement = await StockMovement.create({
+      ...req.body,
+      performedBy: req.user?.id,
+      notes: req.body.note,
+    });
+
+    if (req.body.batch && (req.body.movementType === "dispense" || req.body.movementType === "transfer")) {
+      const batch: any = await ExtendedBatch.findById(req.body.batch);
+      if (batch) {
+        batch.quantity = Math.max((batch.quantity || 0) - Math.abs(req.body.quantity), 0);
+        if (batch.quantity === 0) batch.quarantineStatus = "discarded";
+        await batch.save();
+      }
+    }
+
+    if (req.body.movementType === "receipt" && req.body.toLocation && req.body.batch) {
+      const batch: any = await ExtendedBatch.findById(req.body.batch);
+      if (batch) {
+        batch.quantity += Math.abs(req.body.quantity);
+        await batch.save();
+      }
+    }
+
+    res.status(201).json({ data: movement });
+  }),
+);
+
+// ── Inventory Locations ───────────────────────────────────
+
+pharmacyRouter.get(
+  "/locations",
+  requireRoles("pharmacy", "manager"),
+  asyncHandler(async (_req, res) => {
+    const locations = await InventoryLocation.find({ active: true }).sort({ name: 1 }).lean();
+    res.json({ data: locations });
+  }),
+);
+
+pharmacyRouter.post(
+  "/locations",
+  requireRoles("pharmacy"),
+  validate({
+    body: z.object({
+      name: z.string().min(2),
+      type: z.enum(["main_pharmacy", "ward_store", "outpatient_pharmacy", "emergency_store"]),
+      ward: z.string().optional(),
+    }),
+  }),
+  asyncHandler(async (req, res) => {
+    const location = await InventoryLocation.create(req.body);
+    res.status(201).json({ data: location });
+  }),
+);
+
+// ── Purchase Orders ───────────────────────────────────────
+
+pharmacyRouter.get(
+  "/purchase-orders",
+  requireRoles("pharmacy", "manager", "accountant", "accounts_manager"),
+  asyncHandler(async (req, res) => {
+    const status = String(req.query.status ?? "");
+    const query: Record<string, unknown> = status ? { status } : {};
+    const orders = await PurchaseOrder.find(query)
+      .populate("items.item", "name sku")
+      .populate("createdBy", "fullName")
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+    res.json({ data: orders });
+  }),
+);
+
+pharmacyRouter.post(
+  "/purchase-orders",
+  requireRoles("pharmacy"),
+  validate({
+    body: z.object({
+      supplier: z.string().min(2),
+      expectedDeliveryDate: z.coerce.date().optional(),
+      items: z.array(z.object({
+        item: z.string().min(1),
+        quantity: z.number().min(1),
+        unitCost: z.number().min(0).default(0),
+      })).min(1),
+      notes: z.string().optional(),
+    }),
+  }),
+  asyncHandler(async (req, res) => {
+    const poNumber = `PO-${new Date().getFullYear()}-${Date.now().toString(36).toUpperCase()}`;
+    const order = await PurchaseOrder.create({
+      ...req.body,
+      poNumber,
+      status: "draft",
+      createdBy: req.user?.id,
+    });
+    res.status(201).json({ data: order });
+  }),
+);
+
+pharmacyRouter.patch(
+  "/purchase-orders/:id/approve",
+  requireRoles("pharmacy", "manager"),
+  asyncHandler(async (req, res) => {
+    const order: any = await PurchaseOrder.findById(req.params.id);
+    if (!order) throw notFound("Purchase order not found.");
+    if (order.status !== "draft") throw new HttpError(409, "Only draft orders can be approved.");
+    order.status = "approved";
+    order.approvedBy = req.user?.id;
+    await order.save();
+    res.json({ data: order });
+  }),
+);
+
+// ── Goods Received Notes ──────────────────────────────────
+
+pharmacyRouter.post(
+  "/grn",
+  requireRoles("pharmacy"),
+  validate({
+    body: z.object({
+      purchaseOrder: z.string().optional(),
+      supplier: z.string().min(2),
+      items: z.array(z.object({
+        item: z.string().min(1),
+        quantityReceived: z.number().min(0),
+        batchNumber: z.string().min(1),
+        expiryDate: z.coerce.date(),
+        unitCost: z.number().min(0),
+        locationId: z.string().optional(),
+      })).min(1),
+      notes: z.string().optional(),
+    }),
+  }),
+  asyncHandler(async (req, res) => {
+    const grnNumber = `GRN-${new Date().getFullYear()}-${Date.now().toString(36).toUpperCase()}`;
+    const grn = await GoodsReceivedNote.create({
+      ...req.body,
+      grnNumber,
+      status: "draft",
+      receivedBy: req.user?.id,
+    });
+
+    for (const grnItem of req.body.items) {
+      await ExtendedBatch.create({
+        item: grnItem.item,
+        batchNumber: grnItem.batchNumber,
+        quantity: grnItem.quantityReceived,
+        expiryDate: grnItem.expiryDate,
+        costPrice: grnItem.unitCost,
+        supplier: req.body.supplier,
+        locationId: grnItem.locationId,
+        receivedAt: new Date(),
+        receivedBy: req.user?.id,
+      });
+
+      await StockMovement.create({
+        item: grnItem.item,
+        quantity: grnItem.quantityReceived,
+        toLocation: grnItem.locationId,
+        movementType: "receipt",
+        referenceId: grn._id,
+        referenceModel: "GoodsReceivedNote",
+        performedBy: req.user?.id,
+      });
+    }
+
+    if (req.body.purchaseOrder) {
+      await PurchaseOrder.findByIdAndUpdate(req.body.purchaseOrder, { status: "partially_received" });
+    }
+
+    res.status(201).json({ data: grn });
+  }),
+);
+
+pharmacyRouter.patch(
+  "/grn/:id/invoice-match",
+  requireRoles("accountant", "accounts_manager"),
+  asyncHandler(async (req, res) => {
+    const grn: any = await GoodsReceivedNote.findById(req.params.id);
+    if (!grn) throw notFound("GRN not found.");
+    if (grn.status !== "verified") throw new HttpError(409, "GRN must be verified before invoice matching.");
+    grn.status = "invoice_matched";
+    grn.invoiceMatchedBy = req.user?.id;
+    grn.invoiceMatchedAt = new Date();
+    await grn.save();
+    res.json({ data: grn });
+  }),
+);
+
+// ── Controlled Substances ─────────────────────────────────
+
+pharmacyRouter.post(
+  "/controlled-substance-dispense",
+  requireRoles("pharmacy"),
+  validate({
+    body: z.object({
+      item: z.string().min(1),
+      batch: z.string().min(1),
+      quantityDispensed: z.number().min(1),
+      coSignatory: z.string().min(1),
+      prescription: z.string().optional(),
+      patient: z.string().optional(),
+      shift: z.string().optional(),
+      notes: z.string().optional(),
+    }),
+  }),
+  asyncHandler(async (req, res) => {
+    const batch: any = await ExtendedBatch.findById(req.body.batch);
+    if (!batch) throw notFound("Batch not found.");
+
+    const balanceBefore = batch.quantity;
+    const balanceAfter = balanceBefore - req.body.quantityDispensed;
+
+    if (balanceAfter < 0) {
+      throw new HttpError(409, "Insufficient stock for controlled substance.");
+    }
+
+    const entry = await ControlledSubstanceRegister.create({
+      ...req.body,
+      balanceBefore,
+      balanceAfter,
+      dispensedBy: req.user?.id,
+      discrepancy: false,
+    });
+
+    batch.quantity = balanceAfter;
+    await batch.save();
+
+    await StockMovement.create({
+      item: req.body.item,
+      batch: req.body.batch,
+      quantity: -req.body.quantityDispensed,
+      movementType: "dispense",
+      referenceId: String(entry._id),
+      referenceModel: "ControlledSubstanceRegister",
+      performedBy: req.user?.id,
+    });
+
+    res.status(201).json({ data: entry });
+  }),
+);
+
+pharmacyRouter.get(
+  "/controlled-substance-register",
+  requireRoles("pharmacy", "manager"),
+  asyncHandler(async (req, res) => {
+    const entries = await ControlledSubstanceRegister.find({})
+      .populate("item", "name")
+      .populate("dispensedBy", "fullName")
+      .populate("coSignatory", "fullName")
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean();
+    res.json({ data: entries });
   }),
 );

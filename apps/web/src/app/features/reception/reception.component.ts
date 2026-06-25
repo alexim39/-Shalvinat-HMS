@@ -193,6 +193,68 @@ import { ApiResponse, Pagination, Patient, Visit } from '../../core/types';
             <p class="muted">Generate an invoice to collect payment.</p>
           }
         </article>
+
+        <article class="card span-4">
+          <h2>Change Patient Record Type</h2>
+          <div class="list">
+            @for (patient of patients(); track patient._id) {
+              <button type="button" class="list-item" (click)="selectedPatientForCategory.set(patient); categoryChangeMeta.set(null)">
+                <strong>{{ patient.firstName }} {{ patient.lastName }}</strong>
+                <span class="muted">{{ patient.patientNumber }}</span>
+              </button>
+            }
+          </div>
+          @if (selectedPatientForCategory()) {
+            <form [formGroup]="categoryForm" (ngSubmit)="changeCategory()" class="form-grid" style="margin-top:14px">
+              <div class="patient-banner">
+                <strong>{{ selectedPatientForCategory()?.firstName }} {{ selectedPatientForCategory()?.lastName }}</strong>
+                <span>Current: {{ selectedPatientForCategory()?.category }}</span>
+              </div>
+              @if (categoryChangeMeta()) {
+                <p class="full" [class.warning]="categoryChangeMeta()?.hasActiveVisits" [class.success]="!categoryChangeMeta()?.hasActiveVisits">
+                  Changed from {{ categoryChangeMeta()?.previousCategory }} to {{ categoryChangeMeta()?.newCategory }}
+                  @if (categoryChangeMeta()?.hasActiveVisits) { (active visits exist &mdash; billing not migrated) }
+                </p>
+              }
+              <label class="full">
+                New Category
+                <select formControlName="category" (change)="categoryForm.patchValue({familyId:'',organizationName:'',employerId:''})">
+                  <option value="individual">Individual</option>
+                  <option value="family">Family</option>
+                  <option value="company">Company/Organization</option>
+                  <option value="hmo">HMO</option>
+                </select>
+              </label>
+              <label class="full">
+                Billing Policy
+                <select formControlName="billingPolicy">
+                  <option value="individual_billed">Individual Billed</option>
+                  <option value="family_billed">Family Billed</option>
+                  <option value="organization_billed">Organization Billed</option>
+                </select>
+              </label>
+              @if ($any(categoryForm.get('category')?.value) === 'family') {
+                <label class="full">
+                  Family Head ID
+                  <input formControlName="familyId" placeholder="Patient ID of family head" />
+                </label>
+              }
+              @if ($any(categoryForm.get('category')?.value) === 'company') {
+                <label class="full">
+                  Organization Name
+                  <input formControlName="organizationName" placeholder="Company name" />
+                </label>
+                <label class="full">
+                  Employer ID
+                  <input formControlName="employerId" placeholder="Optional" />
+                </label>
+              }
+              <div class="actions full">
+                <button class="primary-button" type="submit" [disabled]="categoryForm.invalid">Update Record Type</button>
+              </div>
+            </form>
+          }
+        </article>
       </div>
     </section>
   `
@@ -234,6 +296,17 @@ export class ReceptionComponent implements OnInit {
     amount: [5000, [Validators.required, Validators.min(1)]],
     method: ['cash', Validators.required]
   });
+
+  readonly categoryForm = this.fb.nonNullable.group({
+    category: ['individual' as const, Validators.required],
+    billingPolicy: ['individual_billed' as const],
+    familyId: [''],
+    organizationName: [''],
+    employerId: [''],
+  });
+
+  readonly selectedPatientForCategory = signal<any | null>(null);
+  readonly categoryChangeMeta = signal<any | null>(null);
 
   ngOnInit() {
     this.searchPatients();
@@ -320,6 +393,17 @@ export class ReceptionComponent implements OnInit {
     this.api
       .post<ApiResponse<any>>(`/billing/invoices/${invoice._id}/payments`, this.paymentForm.getRawValue())
       .subscribe((response) => this.selectedInvoice.set(response.data));
+  }
+
+  changeCategory() {
+    const patient = this.selectedPatientForCategory();
+    if (!patient || this.categoryForm.invalid) return;
+    this.api.patch<ApiResponse<any>>(`/patients/${patient._id}/category`, this.categoryForm.getRawValue())
+      .subscribe((response) => {
+        this.categoryChangeMeta.set(response.meta);
+        this.selectedPatientForCategory.set(response.data);
+        this.searchPatients();
+      });
   }
 
   pageInfo(pagination: Pagination) {

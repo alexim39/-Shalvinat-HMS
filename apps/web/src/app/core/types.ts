@@ -6,6 +6,8 @@ export type Role =
   | 'laboratory'
   | 'radiology'
   | 'manager'
+  | 'accountant'
+  | 'accounts_manager'
   | 'director';
 
 export type User = {
@@ -21,6 +23,7 @@ export type ApiResponse<T> = {
   data: T;
   unreadCount?: number;
   pagination?: Pagination;
+  meta?: Record<string, unknown>;
 };
 
 export type Pagination = {

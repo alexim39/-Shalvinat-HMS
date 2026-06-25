@@ -8,6 +8,8 @@ export const ROLES = [
   "laboratory",
   "radiology",
   "manager",
+  "accountant",
+  "accounts_manager",
   "director",
 ] as const;
 

@@ -20,6 +20,8 @@ const users = [
   { fullName: "Lab User", email: "lab@shalvinat.local", roles: ["laboratory"], department: "Laboratory" },
   { fullName: "Radiology User", email: "radiology@shalvinat.local", roles: ["radiology"], department: "Radiology" },
   { fullName: "Manager User", email: "manager@shalvinat.local", roles: ["manager"], department: "Administration" },
+  { fullName: "Accountant User", email: "accountant@shalvinat.local", roles: ["accountant"], department: "Accounting" },
+  { fullName: "Accounts Manager User", email: "accounts_manager@shalvinat.local", roles: ["accounts_manager"], department: "Accounting" },
 ] as const;
 
 async function seed() {

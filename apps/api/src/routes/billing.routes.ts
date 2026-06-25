@@ -108,7 +108,7 @@ billingRouter.post(
 
 billingRouter.get(
   "/invoices",
-  requireRoles("reception", "manager"),
+  requireRoles("reception", "manager", "accountant", "accounts_manager"),
   asyncHandler(async (req, res) => {
     const { page, limit, skip } = getPagination(req);
     const status = String(req.query.status ?? "");
@@ -135,7 +135,7 @@ billingRouter.get(
 
 billingRouter.get(
   "/summary",
-  requireRoles("manager"),
+  requireRoles("manager", "accountant", "accounts_manager"),
   asyncHandler(async (_req, res) => {
     const start = new Date();
     start.setHours(0, 0, 0, 0);

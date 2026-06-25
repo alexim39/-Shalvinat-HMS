@@ -9,7 +9,7 @@ Authentication and RBAC identity.
 
 - `fullName`, `email`, `phone`
 - `department`, `designation`
-- `roles`: reception, nurse, doctor, pharmacy, laboratory, radiology, manager, director
+- `roles`: reception, nurse, doctor, pharmacy, laboratory, radiology, manager, accountant, accounts_manager, director
 - `passwordHash`: bcrypt, excluded from default queries
 - `status`: active, inactive, suspended, locked
 - `mustChangePassword`, `twoFactorEnabled`
@@ -26,153 +26,153 @@ Append-only request activity log.
 - `metadata`
 
 ### SystemSetting
-Director-managed key/value settings for hospital profile, fee schedules, lab menus, formulary configuration, and integration settings.
+Director-managed key/value settings.
 
 ## Reception and Patient Administration
 
 ### Patient
-Core patient record and NHIA/HMO-ready demographics.
+Core patient record.
 
-- `patientNumber`: generated as `SHL-YYYY-00001`
-- `firstName`, `middleName`, `lastName`
-- `dateOfBirth`, `gender`, `maritalStatus`
-- `bloodGroup`, `genotype`, `nationality`
-- `stateOfOrigin`, `lgaOfOrigin`, `villageOfOrigin`
+- `patientNumber`, `firstName`, `middleName`, `lastName`
+- `dateOfBirth`, `gender`, `maritalStatus`, `bloodGroup`, `genotype`
+- `nationality`, `stateOfOrigin`, `lgaOfOrigin`, `villageOfOrigin`
 - `residentialAddress`, `phone`, `phoneAlt`, `email`
 - `category`: company, family, HMO, individual
-- `nextOfKin`: name, relationship, phone, address, state, LGA
-- `hmo`: company, plan, id number, employer name
-- `allergies`, `alerts`, `photoUrl`
-- `consent`
+- `familyId`: links to family head Patient record
+- `organizationName`, `employerId`
+- `billingPolicy`: individual_billed, family_billed, organization_billed
+- `nextOfKin`, `hmo`, `allergies`, `alerts`, `photoUrl`, `consent`
 - `createdBy`, `updatedBy`
 
 ### Visit
 Encounter and queue record.
 
-- `visitNumber`
-- `patient`
-- `visitType`: OPD, IPD, emergency, antenatal, immunisation
-- `department`, `assignedDoctor`
-- `queueNumber`, `checkInTime`
-- `triageLevel`
-- `status`: registered, queued, triaged, with doctor, investigations, pharmacy, admitted, discharged, deceased
-- `paymentStatus`: pending, partial, paid, HMO, deferred
-- `billing`: total invoice, paid, balance
-- `admission`: ward, bed, diagnosis, plan, admitted/discharged timestamps, summary
-
-### Appointment
-Scheduled care record.
-
-- `patient`, `department`, `doctor`
-- `type`: walk-in, scheduled OPD, specialist, antenatal, immunisation, follow-up
-- `startsAt`, `status`, `reason`, `reminderSentAt`
+- `visitNumber`, `patient`, `visitType`, `department`, `assignedDoctor`
+- `queueNumber`, `checkInTime`, `triageLevel`
+- `status`, `paymentStatus`
+- `billing`: totalInvoice, amountPaid, balance
+- `admission`: ward, bed, admittingDiagnosis, managementPlan, admittedAt, dischargedAt, dischargeSummary
 
 ### Invoice
 Billing and payment ledger.
 
-- `invoiceNumber`
-- `patient`, `visit`
-- `items`: description, department, quantity, unit price, amount
-- `subtotal`, `discount`, `total`, `amountPaid`, `balance`
-- `status`: draft, pending, partial, paid, void
-- `payerType`: self, HMO, NHIA, company
-- `payments`: receipt number, amount, method, reference, collector, reversal fields
+- `invoiceNumber`, `patient`, `visit`
+- `items`, `subtotal`, `discount`, `total`, `amountPaid`, `balance`
+- `status`, `payerType`
+- `payments[]`, `voidedBy`, `voidedAt`, `voidReason`
+- `supervisorAuthorizerId`, `supervisorAuthorizedAt`
+- `editHistory[]`: editedBy, editedAt, changes (before/after)
+- `updatedBy`
 
 ## Clinical Care
 
-### TriageRecord
-
-- `visit`, `patient`
-- `category`: resuscitation, emergent, urgent, less urgent, non-urgent
-- `presentingComplaint`, `notes`, `escalated`
-- `recordedBy`
-
-### VitalSign
-
-- BP, pulse, temperature, respiratory rate, SpO2, GRBS, weight, height, BMI, pain score
-- `flags`: generated for critical BP, low SpO2, high fever, severe pain
-- `recordedBy`
-
-### NursingNote
-
-- NANDA-style `assessment`, `diagnoses`, `goals`, `interventions`
-- `shiftHandover`, fall risk score, pressure ulcer risk score
-
-### MedicationAdministration
-
-- `prescription`, `doseGiven`, `route`, `administeredAt`
-- `status`: given, missed, refused, held
-- `reason`, `administeredBy`
-
-### FluidBalance
-
-- `inputMl`, `outputMl`, `source`, `route`, `balanceMl`
-
 ### ClinicalNote
-
 - `visit`, `patient`, `doctor`
-- `subjective`, `objective`, encrypted assessment, `diagnoses`, `plan`
-- `reviewOfSystems`, `physicalExam`, `lockedAt`
+- `subjective`, `objective`, `assessmentEncrypted` (AES-256-GCM)
+- `diagnoses[]`, `plan`, `reviewOfSystems`, `physicalExam`, `lockedAt`
+- `patientCurrentStatus`: active_inpatient, ready_for_discharge, discharged, deceased, transferred
+- `doctorStatusTimestamp`, `doctorStatusReason`
 
-Sensitive assessment text is stored in an AES-256-GCM encrypted payload through `secure-fields.ts`.
+*(TriageRecord, VitalSign, NursingNote, MedicationAdministration, FluidBalance unchanged)*
 
 ## Ancillary Departments
 
-### Prescription
-
-- `visit`, `patient`, `doctor`
-- formulary `drug`
-- `drugName`, `brandName`, dose, frequency, route, duration, quantity
-- `specialInstructions`, `interactionFlags`
-- `status`: pending, dispensed, partially dispensed, cancelled
-- `dispensedBy`, `dispensedAt`
-
-### Drug
-
-- `genericName`, `brandNames`, strength, dosage form
-- `category`: controlled, prescription, OTC, consumable
-- `storageRequirements`, `reorderLevel`, `active`
-
-### InventoryBatch
-
-- `drug`, `batchNumber`, `location`
-- `quantityOnHand`, costs/prices, `expiryDate`, supplier
-- `receivedBy`
-
-### DispenseRecord
-
-- `prescription`, `patient`, `batch`
-- `quantityDispensed`, `counsellingNotes`, `dispensedBy`
-
 ### LabRequest
-
-- `visit`, `patient`, `doctor`
-- `tests`, `discipline`, `urgency`, specimen and clinical notes
-- `sampleCode`, sample collection fields, rejection reason
-- `results`: analyte, value, unit, reference range, flag
-- technical validation and authorization fields
-- `status`: ordered, sample collected, processing, validated, authorized, rejected, reviewed
+- Standard lab workflow fields
+- `resultFiles[]`: fileName, originalName, fileType, fileSize, storagePath, uploadedBy, uploadedAt, summary, released, releasedAt
 
 ### ImagingRequest
+- Standard imaging workflow fields
+- `resultFiles[]`: same structure as LabRequest
 
-- `visit`, `patient`, `doctor`
-- `modality`, `bodyRegion`, `clinicalIndication`, `urgency`
-- procedure fields, image/report links, report text
-- `urgentFinding`, `status`
+### Prescription, Drug, InventoryBatch, DispenseRecord
+- Existing pharmacy models unchanged
+
+## Pharmacy Inventory (New Models)
+
+### InventoryItem
+- `name`, `sku`, `drug` (optional ref to Drug)
+- `category`: drug, consumable, surgical, equipment, reagent, other
+- `unitOfMeasure`, `isControlled`, `reorderLevel`, `reorderPoint`
+- `storageCondition`, `minOrderQty`, `active`
+
+### ExtendedBatch
+- `item` (ref InventoryItem), `batchNumber`
+- `quantity`, `expiryDate`, `costPrice`, `sellingPrice`
+- `supplier`, `locationId` (ref InventoryLocation)
+- `receivedAt`, `receivedBy`
+- `quarantineStatus`: active, quarantined, expired, discarded
+
+### InventoryLocation
+- `name`, `type`: main_pharmacy, ward_store, outpatient_pharmacy, emergency_store
+- `ward`, `active`
+
+### StockMovement
+- `item`, `batch`, `quantity`, `fromLocation`, `toLocation`
+- `movementType`: receipt, dispense, transfer, adjustment, return, expiry_write_off
+- `referenceId`, `referenceModel`
+- `performedBy`, `notes`
+
+### PurchaseOrder
+- `poNumber`, `supplier`, `expectedDeliveryDate`
+- `items[]`: item (ref), quantity, unitCost
+- `status`: draft, pending, approved, ordered, partially_received, received, cancelled
+- `createdBy`, `approvedBy`, `notes`
+
+### GoodsReceivedNote
+- `grnNumber`, `purchaseOrder`, `supplier`, `receivedBy`
+- `items[]`: item, quantityReceived, batchNumber, expiryDate, unitCost, locationId
+- `status`: draft, verified, invoice_matched, paid
+- `invoiceMatchedBy`, `invoiceMatchedAt`
+
+### ControlledSubstanceRegister
+- `item`, `batch`, `shift`
+- `balanceBefore`, `quantityDispensed`, `balanceAfter`
+- `dispensedBy`, `coSignatory` (dual-signature: Pharmacist + Doctor)
+- `prescription`, `patient`
+- `discrepancy`, `discrepancyReason`, `notes`
+
+## Accounting (New Models)
+
+### PaymentEntry
+- `receiptNumber`, `visit`, `patient`, `invoice`
+- `amount`, `method`, `reference`
+- `type`: payment, partial_reversal, full_reversal, refund
+- `status`: pending, authorized, reversed, rejected
+- `receivedBy`, `authorizedBy`, `supervisorAuthorizerId`
+- `paymentDate`, `reversalReason`, `notes`
+
+### Receivable
+- `patient`, `invoice`, `amountOutstanding`, `daysOutstanding`
+- `agingBucket`: 0_30, 31_60, 61_90, 91_plus
+- `lastPaymentDate`, `notes`
+
+### HmoClaim
+- `claimNumber`, `patient`, `visit`, `hmoProvider`, `hmoPlan`
+- `invoice`, `claimedAmount`, `approvedAmount`
+- `status`: draft, submitted, pending, approved, partially_approved, rejected, paid
+- `submittedBy`, `approvedBy`, `rejectionReason`, `submissionDate`, `responseDate`
+
+### Voucher
+- `voucherNumber`, `type`: petty_cash, vendor_payment, refund
+- `payee`, `amount`, `category`, `description`
+- `receiptAttachmentUrl`
+- `status`: draft, pending, approved, paid, rejected, cancelled
+- `preparedBy`, `approvedBy`, `paymentDate`
+
+### ApprovalRequest
+- `requestType`: payment_reversal, refund, invoice_edit, claim_submission, voucher_approval, grn_payment
+- `referenceId`, `referenceModel`, `amount`
+- `requestedBy`, `approverRole` (manager/director), `approvedBy`, `approvedAt`
+- `status`: pending, approved, rejected
+- `reason`, `notes`
 
 ## Management
 
-### Staff
-Staff registry with `fullName`, `role` including director, optional `email`/`phone`, department, designation, registration number, employment type, leave balance, `status` for active/on leave/inactive staff, performance notes, and optional linked `User` account for platform access.
-
-### Expense
-Operational expenditure by category, amount, date, receipt URL, recorder.
-
 ### Bed
-Ward and bed occupancy status with current patient/visit references.
+- `ward`, `bedNumber`, `category`
+- `status`: vacant, occupied, under_cleaning, reserved, maintenance
+- `currentPatient`, `currentVisit`, `admittingDoctor`, `admittedAt`
+- `reservationExpiresAt`, `reservedBy`
 
-### Asset
-Hospital asset register with location, serial number, purchase date, warranty expiry, and status.
-
-### Notification
-Role/user-targeted alerts for critical values, stock alerts, pending work, and operational follow-up.
+*(Staff, Expense, Asset, Notification unchanged)*

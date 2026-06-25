@@ -87,7 +87,7 @@ export class ShellComponent {
   private readonly previousUrl = signal<string | null>(null);
 
   private readonly navItems: NavItem[] = [
-    { label: 'Dashboard', path: '/dashboard', roles: ['reception', 'nurse', 'doctor', 'pharmacy', 'laboratory', 'radiology', 'manager', 'director'] },
+    { label: 'Dashboard', path: '/dashboard', roles: ['reception', 'nurse', 'doctor', 'pharmacy', 'laboratory', 'radiology', 'manager', 'accountant', 'accounts_manager', 'director'] },
     { label: 'Reception', path: '/reception', roles: ['reception'] },
     { label: 'Nursing', path: '/nursing', roles: ['nurse'] },
     { label: 'Doctor', path: '/doctor', roles: ['doctor'] },
@@ -95,6 +95,7 @@ export class ShellComponent {
     { label: 'Laboratory', path: '/lab', roles: ['laboratory'] },
     { label: 'Radiology', path: '/radiology', roles: ['radiology'] },
     { label: 'Management', path: '/management', roles: ['manager'] },
+    { label: 'Accounting', path: '/accounting', roles: ['accountant', 'accounts_manager'] },
     { label: 'Director', path: '/director', roles: ['director'] }
   ];
 

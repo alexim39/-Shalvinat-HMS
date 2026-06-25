@@ -11,10 +11,12 @@ import { Prescription } from "../models/pharmacy.model.js";
 import { Visit } from "../models/visit.model.js";
 import { asyncHandler } from "../utils/async-handler.js";
 import { calculateAge, escapeRegex } from "../utils/case.js";
-import { notFound } from "../utils/http-error.js";
+import { notFound, HttpError } from "../utils/http-error.js";
+import type { Role } from "../types.js";
 import { getPagination, paginationMeta } from "../utils/pagination.js";
 import { decryptText } from "../utils/secure-fields.js";
 import { nextPatientNumber } from "../utils/sequences.js";
+import { filterClinicalDataForRole } from "../utils/clinical-filter.js";
 
 export const patientRouter = Router();
 
@@ -140,6 +142,59 @@ patientRouter.patch(
   }),
 );
 
+patientRouter.patch(
+  "/:id/category",
+  requireRoles("reception"),
+  validate({
+    body: z.object({
+      category: z.enum(["company", "family", "hmo", "individual"]),
+      billingPolicy: z.enum(["individual_billed", "family_billed", "organization_billed"]).optional(),
+      familyId: z.string().optional(),
+      organizationName: z.string().optional(),
+      employerId: z.string().optional(),
+    }),
+  }),
+  asyncHandler(async (req, res) => {
+    const patient: any = await Patient.findById(req.params.id);
+    if (!patient) throw notFound("Patient not found.");
+
+    const { category, billingPolicy, familyId, organizationName, employerId } = req.body;
+    const oldCategory = patient.category;
+
+    if (category === "family" && !familyId && oldCategory !== "family") {
+      throw new HttpError(400, "Must specify a family ID (family head patient) when switching to family category.");
+    }
+
+    if (category === "company" && !organizationName) {
+      throw new HttpError(400, "Must specify an organization name when switching to company category.");
+    }
+
+    const activeVisits = await Visit.countDocuments({
+      patient: req.params.id,
+      status: { $nin: ["discharged", "deceased"] },
+    });
+
+    const changeMeta: Record<string, unknown> = {
+      previousCategory: oldCategory,
+      newCategory: category,
+      hasActiveVisits: activeVisits > 0,
+    };
+
+    patient.category = category;
+    patient.billingPolicy = billingPolicy ?? patient.billingPolicy;
+    patient.familyId = familyId ?? (category === "family" ? patient.familyId : undefined);
+    patient.organizationName = organizationName ?? (category === "company" ? patient.organizationName : undefined);
+    patient.employerId = employerId ?? (category === "company" ? patient.employerId : undefined);
+    patient.updatedBy = req.user?.id;
+    await patient.save();
+
+    res.json({
+      data: patient,
+      meta: changeMeta,
+    });
+  }),
+);
+
 patientRouter.get(
   "/:id/reception-summary",
   requireRoles("reception", "manager"),
@@ -173,7 +228,7 @@ patientRouter.get(
 
 patientRouter.get(
   "/:id/timeline",
-  requireRoles("nurse", "doctor", "director"),
+  requireRoles("nurse", "doctor", "director", "pharmacy", "laboratory", "radiology"),
   asyncHandler(async (req, res) => {
     const patient = await Patient.findById(req.params.id).lean();
     if (!patient) {
@@ -192,22 +247,25 @@ patientRouter.get(
         Invoice.find({ patient: req.params.id }).sort({ createdAt: -1 }).lean(),
       ]);
 
-    res.json({
-      data: {
-        patient: { ...patient, age: calculateAge((patient as any).dateOfBirth) },
-        visits,
-        triage,
-        vitals,
-        clinicalNotes: clinicalNotes.map((note: any) => ({
-          ...note,
-          assessment: decryptText(note.assessmentEncrypted),
-          assessmentEncrypted: undefined,
-        })),
-        prescriptions,
-        labRequests,
-        imagingRequests,
-        invoices,
-      },
-    });
+    const resultData: Record<string, unknown> = {
+      patient: { ...patient, age: calculateAge((patient as any).dateOfBirth) },
+      visits,
+      triage,
+      vitals,
+      clinicalNotes: clinicalNotes.map((note: any) => ({
+        ...note,
+        assessment: decryptText(note.assessmentEncrypted),
+        assessmentEncrypted: undefined,
+      })),
+      prescriptions,
+      labRequests,
+      imagingRequests,
+      invoices,
+    };
+
+    const userRoles = req.user?.roles ?? [];
+    const filtered = filterClinicalDataForRole(resultData, userRoles as Role[]);
+
+    res.json({ data: filtered });
   }),
 );

@@ -8,8 +8,10 @@ import { env } from "./config/env.js";
 import { auditTrail } from "./middleware/audit.js";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler.js";
 import { requestContext } from "./middleware/request-context.js";
+import { accountingRouter } from "./routes/accounting.routes.js";
 import { adminRouter } from "./routes/admin.routes.js";
 import { authRouter } from "./routes/auth.routes.js";
+import { bedRouter } from "./routes/bed.routes.js";
 import { billingRouter } from "./routes/billing.routes.js";
 import { clinicalRouter } from "./routes/clinical.routes.js";
 import { directorRouter } from "./routes/director.routes.js";
@@ -34,7 +36,7 @@ export function createApp() {
   );
   app.use(
     cors({
-      origin: env.CLIENT_ORIGIN,
+      origin: env.CLIENT_ORIGIN.split(",").map((o) => o.trim()),
       credentials: true,
     }),
   );
@@ -67,7 +69,9 @@ export function createApp() {
   app.use(auditTrail);
   app.use(`${env.API_PREFIX}/auth`, authRouter);
   app.use(`${env.API_PREFIX}/patients`, patientRouter);
+  app.use(`${env.API_PREFIX}/accounting`, accountingRouter);
   app.use(`${env.API_PREFIX}/visits`, visitRouter);
+  app.use(`${env.API_PREFIX}/beds`, bedRouter);
   app.use(`${env.API_PREFIX}/billing`, billingRouter);
   app.use(`${env.API_PREFIX}/nursing`, nursingRouter);
   app.use(`${env.API_PREFIX}/clinical`, clinicalRouter);

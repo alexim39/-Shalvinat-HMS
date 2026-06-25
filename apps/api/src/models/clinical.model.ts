@@ -33,6 +33,12 @@ const clinicalNoteSchema = new Schema(
     reviewOfSystems: { type: String, trim: true },
     physicalExam: { type: String, trim: true },
     lockedAt: { type: Date },
+    patientCurrentStatus: {
+      type: String,
+      enum: ["active_inpatient", "ready_for_discharge", "discharged", "deceased", "transferred"],
+    },
+    doctorStatusTimestamp: { type: Date },
+    doctorStatusReason: { type: String, trim: true },
   },
   { timestamps: true },
 );

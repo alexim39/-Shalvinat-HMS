@@ -237,6 +237,8 @@ export class DirectorComponent implements OnInit {
     { value: 'laboratory', label: 'Laboratory', department: 'Laboratory' },
     { value: 'radiology', label: 'Radiology', department: 'Radiology' },
     { value: 'manager', label: 'Manager', department: 'Administration' },
+    { value: 'accountant', label: 'Accountant', department: 'Accounting' },
+    { value: 'accounts_manager', label: 'Accounts Manager', department: 'Accounting' },
     { value: 'director', label: 'Director', department: 'Executive' }
   ];
 

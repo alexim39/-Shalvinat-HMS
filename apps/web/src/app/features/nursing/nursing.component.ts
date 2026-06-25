@@ -129,6 +129,30 @@ import { ApiResponse, Patient, Visit } from '../../core/types';
           }
         </article>
       </div>
+
+      <article class="card" style="margin-top:20px">
+        <h2>Ward Bed Status</h2>
+        <div class="list">
+          @for (bed of beds(); track bed._id) {
+            <div class="list-item">
+              <div class="row">
+                <strong>{{ bed.ward }} - {{ bed.bedNumber }}</strong>
+                <span class="status">{{ bed.status }}</span>
+              </div>
+              <span class="muted">{{ bed.category }}
+                @if (bed.currentPatient) {
+                  &middot; {{ bed.currentPatient?.firstName }} {{ bed.currentPatient?.lastName }}
+                }
+                @if (bed.reservationExpiresAt) {
+                  &middot; Reserved until {{ bed.reservationExpiresAt | date:'shortTime' }}
+                }
+              </span>
+            </div>
+          } @empty {
+            <p class="muted">No beds configured.</p>
+          }
+        </div>
+      </article>
     </section>
   `
 })
@@ -162,8 +186,11 @@ export class NursingComponent implements OnInit {
     interventions: ['']
   });
 
+  readonly beds = signal<any[]>([]);
+
   ngOnInit() {
     this.loadWorklist();
+    this.loadBeds();
   }
 
   loadWorklist() {
@@ -200,6 +227,13 @@ export class NursingComponent implements OnInit {
         interventions: raw.interventions ? [raw.interventions] : []
       })
       .subscribe(() => this.noteForm.reset({ assessment: '', interventions: '' }));
+  }
+
+  loadBeds() {
+    this.api.get<ApiResponse<any[]>>('/beds', {}).subscribe({
+      next: (r) => this.beds.set(r.data),
+      error: () => this.beds.set([]),
+    });
   }
 
   patientName(visit: Visit) {

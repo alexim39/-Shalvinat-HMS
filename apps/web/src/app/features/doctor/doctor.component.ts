@@ -16,9 +16,65 @@ import { ApiResponse, Patient, Visit } from '../../core/types';
           <p>SOAP documentation, eRx and investigation ordering</p>
         </div>
         <button class="ghost-button" type="button" (click)="loadWorklist()">Refresh</button>
-      </div>
+            </div>
 
-      <div class="grid">
+            @if ((context()?.labRequests?.length || context()?.imagingRequests?.length)) {
+              <div class="grid" style="margin-top:14px">
+                @for (req of context()?.labRequests || []; track req._id) {
+                  <div class="card span-6">
+                    <h3 style="display:flex;justify-content:space-between;align-items:center">
+                      Lab: {{ req.discipline }}
+                      <span class="tag">{{ req.status }}</span>
+                    </h3>
+                    <span class="muted">{{ req.tests?.join(', ') }} &middot; {{ req.specimenType || 'No specimen' }}</span>
+                    @if (req.results?.length) {
+                      <div class="list" style="margin-top:8px">
+                        @for (r of req.results; track r.analyte) {
+                          <div class="list-item">
+                            <strong>{{ r.analyte }}</strong>: {{ r.value }} {{ r.unit }}
+                            <span [class.critical]="r.flag==='critical'" [class.warning]="r.flag==='high'||r.flag==='low'" [class.success]="r.flag==='normal'" style="margin-left:8px">{{ r.flag }}</span>
+                          </div>
+                        }
+                      </div>
+                    }
+                    @if (req.resultFiles?.length) {
+                      <div class="list" style="margin-top:8px">
+                        @for (file of req.resultFiles; track file.fileName) {
+                          <div class="list-item" style="display:flex;align-items:center;justify-content:space-between">
+                            <span>{{ file.originalName }} <span class="muted">({{ (file.fileSize / 1024) | number:'1.0-0' }} KB)</span></span>
+                            <span class="tag" [style.color]="'var(--teal)'">{{ file.released ? 'Released' : 'Pending' }}</span>
+                          </div>
+                        }
+                      </div>
+                    }
+                  </div>
+                }
+                @for (req of context()?.imagingRequests || []; track req._id) {
+                  <div class="card span-6">
+                    <h3 style="display:flex;justify-content:space-between;align-items:center">
+                      Imaging: {{ req.modality }}
+                      <span class="tag">{{ req.status }}</span>
+                    </h3>
+                    <span class="muted">{{ req.bodyRegion }} &middot; {{ req.clinicalIndication }}</span>
+                    @if (req.reportText) {
+                      <p style="margin-top:8px"><strong>Report:</strong> {{ req.reportText }}</p>
+                    }
+                    @if (req.resultFiles?.length) {
+                      <div class="list" style="margin-top:8px">
+                        @for (file of req.resultFiles; track file.fileName) {
+                          <div class="list-item" style="display:flex;align-items:center;justify-content:space-between">
+                            <span>{{ file.originalName }} <span class="muted">({{ (file.fileSize / 1024) | number:'1.0-0' }} KB)</span></span>
+                            <span class="tag" [style.color]="'var(--teal)'">{{ file.released ? 'Released' : 'Pending' }}</span>
+                          </div>
+                        }
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            }
+
+            <div class="grid">
         <article class="card span-4">
           <h2>Consultation Queue</h2>
           <div class="list">
@@ -261,6 +317,55 @@ import { ApiResponse, Patient, Visit } from '../../core/types';
                 </form>
               </div>
             </div>
+
+            <div class="grid">
+              <div class="card span-6">
+                <h2>Patient Status</h2>
+                <form [formGroup]="statusForm" (ngSubmit)="updatePatientStatus()" class="form-grid">
+                  <label class="full">
+                    Current Status
+                    <select formControlName="patientCurrentStatus">
+                      <option value="active_inpatient">Active/Inpatient</option>
+                      <option value="ready_for_discharge">Ready for Discharge</option>
+                      <option value="discharged">Discharged</option>
+                      <option value="deceased">Deceased</option>
+                      <option value="transferred">Transferred</option>
+                    </select>
+                  </label>
+                  <label class="full">
+                    Reason
+                    <input formControlName="reason" placeholder="Optional reason" />
+                  </label>
+                  <div class="actions full">
+                    <button class="ghost-button" type="submit">Update status</button>
+                  </div>
+                </form>
+              </div>
+
+              <div class="card span-6">
+                <h2>Bed Allocation</h2>
+                <form [formGroup]="bedForm" (ngSubmit)="allocateBed()" class="form-grid">
+                  <label class="full">
+                    Select vacant bed
+                    <select formControlName="bed_id">
+                      <option value="">-- Choose a bed --</option>
+                      @for (bed of beds(); track bed._id) {
+                        <option [value]="bed._id">{{ bed.ward }} - {{ bed.bedNumber }} ({{ bed.category }})</option>
+                      }
+                    </select>
+                  </label>
+                  <label class="full">
+                    Reason
+                    <input formControlName="reason" placeholder="Admission reason (optional)" />
+                  </label>
+                  <div class="actions full">
+                    <button class="primary-button" type="submit" [disabled]="bedForm.invalid">
+                      {{ bedsLoading() ? 'Loading beds...' : 'Allocate Bed' }}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
           } @else {
             <div class="card">
               <p class="muted">Select a patient to begin consultation.</p>
@@ -311,6 +416,19 @@ export class DoctorComponent implements OnInit {
     urgency: ['routine'],
   });
 
+  readonly bedForm = this.fb.nonNullable.group({
+    bed_id: ['', Validators.required],
+    reason: [''],
+  });
+
+  readonly statusForm = this.fb.nonNullable.group({
+    patientCurrentStatus: ['active_inpatient', Validators.required],
+    reason: [''],
+  });
+
+  readonly beds = signal<any[]>([]);
+  readonly bedsLoading = signal(false);
+
   ngOnInit() {
     this.loadWorklist();
   }
@@ -325,6 +443,7 @@ export class DoctorComponent implements OnInit {
     this.api
       .get<ApiResponse<any>>(`/clinical/visits/${visit._id}/context`)
       .subscribe((response) => this.context.set(response.data));
+    this.loadBeds();
   }
 
   saveSoap() {
@@ -373,6 +492,37 @@ export class DoctorComponent implements OnInit {
     if (!visit) return;
     this.api
       .post<ApiResponse<any>>(`/clinical/visits/${visit._id}/imaging-requests`, this.imagingForm.getRawValue())
+      .subscribe(() => this.refreshContext());
+  }
+
+  loadBeds() {
+    this.bedsLoading.set(true);
+    this.api.get<ApiResponse<any[]>>('/beds', { status: 'vacant', limit: 50 }).subscribe({
+      next: (r) => {
+        this.beds.set(r.data);
+        this.bedsLoading.set(false);
+      },
+      error: () => this.bedsLoading.set(false),
+    });
+  }
+
+  allocateBed() {
+    const visit = this.selectedVisit();
+    if (!visit || this.bedForm.invalid) return;
+    this.api.post<ApiResponse<any>>('/beds/allocate', {
+      visit_id: visit._id,
+      bed_id: this.bedForm.getRawValue().bed_id,
+      reason: this.bedForm.getRawValue().reason || undefined,
+    }).subscribe(() => {
+      this.loadBeds();
+      this.refreshContext();
+    });
+  }
+
+  updatePatientStatus() {
+    const visit = this.selectedVisit();
+    if (!visit || this.statusForm.invalid) return;
+    this.api.patch<ApiResponse<any>>(`/clinical/visits/${visit._id}/patient-status`, this.statusForm.getRawValue())
       .subscribe(() => this.refreshContext());
   }
 

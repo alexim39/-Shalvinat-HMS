@@ -51,6 +51,14 @@ const patientSchema = new Schema(
     },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
     updatedBy: { type: Schema.Types.ObjectId, ref: "User" },
+    familyId: { type: Schema.Types.ObjectId, ref: "Patient" },
+    organizationName: { type: String, trim: true },
+    employerId: { type: String, trim: true },
+    billingPolicy: {
+      type: String,
+      enum: ["individual_billed", "family_billed", "organization_billed"],
+      default: "individual_billed",
+    },
   },
   { timestamps: true },
 );

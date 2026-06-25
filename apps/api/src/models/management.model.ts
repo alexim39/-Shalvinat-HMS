@@ -58,6 +58,10 @@ const bedSchema = new Schema(
     },
     currentPatient: { type: Schema.Types.ObjectId, ref: "Patient" },
     currentVisit: { type: Schema.Types.ObjectId, ref: "Visit" },
+    admittingDoctor: { type: Schema.Types.ObjectId, ref: "User" },
+    admittedAt: { type: Date },
+    reservationExpiresAt: { type: Date },
+    reservedBy: { type: Schema.Types.ObjectId, ref: "User" },
   },
   { timestamps: true },
 );

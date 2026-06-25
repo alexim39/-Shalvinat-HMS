@@ -40,6 +40,20 @@ const labRequestSchema = new Schema(
     authorizedAt: { type: Date },
     criticalAcknowledgedBy: { type: Schema.Types.ObjectId, ref: "User" },
     criticalAcknowledgedAt: { type: Date },
+    resultFiles: [
+      {
+        fileName: { type: String, required: true },
+        originalName: { type: String, required: true },
+        fileType: { type: String, required: true },
+        fileSize: { type: Number, required: true },
+        storagePath: { type: String, required: true },
+        uploadedBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
+        uploadedAt: { type: Date, default: Date.now },
+        summary: { type: String, trim: true },
+        released: { type: Boolean, default: false },
+        releasedAt: { type: Date },
+      },
+    ],
     status: {
       type: String,
       enum: ["ordered", "sample_collected", "processing", "validated", "authorized", "rejected", "reviewed"],
@@ -67,6 +81,20 @@ const imagingRequestSchema = new Schema(
     imageUrls: [{ type: String, trim: true }],
     reportText: { type: String, trim: true },
     reportUrl: { type: String, trim: true },
+    resultFiles: [
+      {
+        fileName: { type: String, required: true },
+        originalName: { type: String, required: true },
+        fileType: { type: String, required: true },
+        fileSize: { type: Number, required: true },
+        storagePath: { type: String, required: true },
+        uploadedBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
+        uploadedAt: { type: Date, default: Date.now },
+        summary: { type: String, trim: true },
+        released: { type: Boolean, default: false },
+        releasedAt: { type: Date },
+      },
+    ],
     urgentFinding: { type: Boolean, default: false },
     status: {
       type: String,

@@ -51,9 +51,19 @@ const invoiceSchema = new Schema(
     payerType: { type: String, enum: ["self", "hmo", "nhia", "company"], default: "self" },
     payments: [paymentSchema],
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    updatedBy: { type: Schema.Types.ObjectId, ref: "User" },
     voidedBy: { type: Schema.Types.ObjectId, ref: "User" },
     voidedAt: { type: Date },
     voidReason: { type: String, trim: true },
+    supervisorAuthorizerId: { type: Schema.Types.ObjectId, ref: "User" },
+    supervisorAuthorizedAt: { type: Date },
+    editHistory: [
+      {
+        editedBy: { type: Schema.Types.ObjectId, ref: "User" },
+        editedAt: { type: Date },
+        changes: { type: Schema.Types.Mixed },
+      },
+    ],
   },
   { timestamps: true },
 );

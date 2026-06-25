@@ -292,6 +292,59 @@ clinicalRouter.post(
   }),
 );
 
+clinicalRouter.patch(
+  "/visits/:visitId/patient-status",
+  requireRoles("doctor"),
+  validate({
+    body: z.object({
+      patientCurrentStatus: z.enum(["active_inpatient", "ready_for_discharge", "discharged", "deceased", "transferred"]),
+      reason: z.string().optional(),
+    }),
+  }),
+  asyncHandler(async (req, res) => {
+    const visit = await loadVisit(String(req.params.visitId));
+
+    const clinicalNote: any = await ClinicalNote.findOneAndUpdate(
+      { visit: visit._id, doctor: req.user?.id },
+      {
+        patientCurrentStatus: req.body.patientCurrentStatus,
+        doctorStatusTimestamp: new Date(),
+        doctorStatusReason: req.body.reason,
+      },
+      { new: true, upsert: true },
+    );
+
+    if (req.body.patientCurrentStatus === "discharged") {
+      await Visit.findByIdAndUpdate(visit._id, {
+        status: "discharged",
+        "admission.dischargedAt": new Date(),
+        "admission.dischargeSummary": req.body.reason,
+      });
+
+      if (visit.admission?.bed) {
+        const { Bed } = await import("../models/management.model.js");
+        await Bed.findByIdAndUpdate(visit.admission.bed, {
+          status: "under_cleaning",
+          currentPatient: undefined,
+          currentVisit: undefined,
+          admittingDoctor: undefined,
+          admittedAt: undefined,
+        });
+      }
+
+      await Notification.create({
+        role: "reception",
+        title: "Patient Discharged",
+        message: `${visit.patient?.patientNumber} has been discharged. Process final billing.`,
+        severity: "info",
+        link: `/reception?visit=${visit._id}`,
+      });
+    }
+
+    res.json({ data: clinicalNote });
+  }),
+);
+
 clinicalRouter.post(
   "/visits/:visitId/discharge",
   requireRoles("doctor"),
